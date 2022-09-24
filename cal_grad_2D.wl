@@ -175,5 +175,5 @@ Block[{},
     Export["tableGrad/grad-" 
         <> StringJoin[Riffle[StringSplit[dataList[[#]], "-"][[2 ;; -1]], "-"]], 
         gradData[dataTrain[[#]]]
-    ] & /@ Range[Length @ dataTrain]
-]
+    ]
+] & /@ Range[Length @ dataTrain]
