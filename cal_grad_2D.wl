@@ -18,12 +18,12 @@
     -                         Dataset Import
     -----------------------------------------------------------------
 *)
-dir = Import["table"];
-Print["The total number of data is ", Length @ dir];
+dir = "table";
 dataList = Import[dir];
+Print["The total number of data is ", Length @ dataList];
 listPos = Boole[StringSplit[#, "."][[-1]] == "csv"]& /@ dataList
 dataList = Pick[dataList, listPos, 1];
-dataTrain = Import[ToString[dir] ~ StringJoin ~ "/" ~ StringJoin ~ 
+dataTrain = Import[dir ~ StringJoin ~ "/" ~ StringJoin ~ 
     ToString[#]]& /@ dataList;
 Print[Total[Differences[Length[#]& /@ dataTrain[[All, 1]]]], 
     " = 0: the structures of datasets are the same. "];
@@ -63,11 +63,10 @@ checkCoor[dataPar_] :=
     for the dataset 
 *)
 gradPar[dataPar_, width_] := Block[{radialGrad, axialGrad, dataGrad},
-    Print[
-        "--------------------------------------------------
-        The gradients include: Es, P, UslipY, Uslip, Oz.
-        The gradient directions are: radial and axial. 
-        --------------------------------------------------"];
+    Print["--------------------------------------------------"];
+    Print["The gradients include: Es, P, UslipY, Uslip, Oz."];
+    Print["The gradient directions are: radial and axial. "];
+    Print["--------------------------------------------------"];
     dataGrad = {};
     (*-----------------------------------------------------------*)
     (* Gradient of solids holdup #4 *)
@@ -161,7 +160,7 @@ gradData[dataCal_] := Block[{width, dataPar, dataReplaced, table},
     table = gradPar[dataPar, width] ~ Join ~ Transpose[dataReplaced];
     Print["The data table generated successfully. "];
     Print["----------------------- END ----------------------"];
-    table
+    Transpose @ table
 ];
 
 (* 
@@ -177,3 +176,5 @@ Block[{},
         gradData[dataTrain[[#]]]
     ]
 ] & /@ Range[Length @ dataTrain]
+
+(* CMD line running code: wolframscript -file '.\cal_grad_2D.wl' *)
