@@ -1,0 +1,20 @@
+/define/user-defined/compiled-functions compile "libudf" y "feature_loop.c" "" "vector.c" "vector.h" ""
+; /define/user-defined/compiled-functions compile "libudf" y "feature_loop-1.c" "ON_DEMAND-test_ML.c" "" "vector.c" "vector.h" ""
+; /define/user-defined/compiled-functions compile "libudf" y "begin.c" "" ""
+/define/user-defined/compiled-functions load "libudf"
+
+/file/read-case "3D-Rb-W5300-ML-pre"
+/file/read-data "3D-Rb-W5300-ML-pre"
+; /file/read-case-data "3D-Rb-W5300-ML-pre"
+
+; /define/user-defined/function-hooks execute-at-end "feature_loop::libudf" ""
+; /define/user-defined/function-hooks execute-at-exit "destroy_vector::libudf" ""
+; /solve/set/transient-controls/fixed-user yes
+/solve/set/time-step-size 1e-4
+; /solve/set/number-of-time-steps 100000000
+
+; /define/phases/set-domain-properties/interaction-domain/forces drag
+
+/solve/dual-time-iterate 1000000000 50
+; /solve/dual-time-iterate 1 50
+; /solve/dual-time-iterate 2 50
