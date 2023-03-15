@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 print("Let's start!")
 # ---------------------------------------------------------
+# socket_echo_server_uds.py
 import sys
 import socket
 import os
@@ -11,22 +12,20 @@ import threading
 import multiprocessing
 from multiprocessing import Process
 
+
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 print("Import packages and disable GPU complete. ")
 # ---------------------------------------------------------
-import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import pickle
 
 print("Import pickle complete. ")
 # ----------------------------------
-# ----------------------------------
-# set the address of model and nml factor
+
 model_hr_address = "./model/model_3D-hr-cubic-half.h5"
 model_hd_address = "./model/model_3D-hd-cubic-half.h5"
-nml_factor_hr_address = "./model/table-nmlFactor-3D-0.56-Hr-half.csv"
-nml_factor_hd_address = "./model/table-nmlFactor-3D-0.56-Hd-half.csv"
+
 # ----------------------------------
 # for Hr
 # 0 nt
@@ -43,12 +42,38 @@ nml_factor_hd_address = "./model/table-nmlFactor-3D-0.56-Hd-half.csv"
 # 11 gradYOz
 # 12 coefHr
 # ----------------------------------
-nml_factor_hr = pd.read_csv(nml_factor_hr_address, # file path
-                            header=None, # no header
-                            comment='\t', # skip lines starting with '\t'
-                            skipinitialspace=True # skip spaces after separator 
-                            )
-nml_factor_hr = nml_factor_hr.to_numpy()
+
+nml_factor_hr = np.array([[
+    3.6799843384E+01,
+    1.5982814355E-01,
+    1.2721378852E+03,
+    4.2235212576E-01,
+    1.1953221242E+06,
+    8.8954894382E+00,
+    3.2707404349E-01,
+    8.7746568175E+03,
+    2.6247173478E-01,
+    5.6427935728E-01,
+    2.2325880651E+03,
+    1.4488878672E+00,
+    6.3149212593E-01
+],
+[ 
+    1.1704891037E+01,
+    1.1823957392E-01,
+    2.2825528724E+03,
+    4.0476079289E+01,
+    2.8380816442E+06,
+    1.9503716592E+03,
+    2.4506833706E-01,
+    1.9736931154E+04,
+    7.6984981100E+01,
+    2.8701911491E-01,
+    5.1183006909E+03,
+    5.5640726584E+01,
+    7.2881395757E-02
+]])
+
 # ----------------------------------
 # for Hd
 # 0 nt
@@ -63,13 +88,35 @@ nml_factor_hr = nml_factor_hr.to_numpy()
 # 9 avBetay
 # 10 coefHd
 # ----------------------------------
-nml_factor_hd = pd.read_csv(nml_factor_hd_address, # file path
-                            header=None, # no header
-                            comment='\t', # skip lines starting with '\t'
-                            skipinitialspace=True # skip spaces after separator 
-                            )
-nml_factor_hd = nml_factor_hd.to_numpy()
-# ----------------------------------
+
+nml_factor_hd = np.array([[
+    3.70035695213E+01,
+    1.58755329696E-01,
+    1.29003760913E+03,
+    9.75815987820E-01,
+    1.15935057931E+06,
+    2.73008873578E+01,
+    3.09356620558E-01,
+    8.13747803847E+03,
+    2.92646374665E-01,
+    3.34050820274E+04,
+    5.21603190897E-01
+],
+[
+    1.18840855360E+01,
+    1.17953784620E-01,
+    2.31289437630E+03,
+    3.98219136394E+01,
+    2.77709590070E+06,
+    1.89276143582E+03,
+    2.33254151638E-01,
+    1.82825139016E+04,
+    6.93896396324E+01,
+    4.37588727385E+04,
+    2.22624166564E-01
+]
+])
+# ------------------------------
 # ---------------------------------------------------------
 from tensorflow import keras as keras
 from tensorflow.keras.models import load_model
@@ -108,10 +155,9 @@ FEATURE = 0  # 特征数据
 RESULT = 0  # 返回值
 
 # ---------------------------------------------------------
-#                    Define Functions
 # ---------------------------------------------------------
-# 不用改
-def writePacket(connection, command, buf):
+# ---------------------------------------------------------
+def writePacket(connection, command, buf):  # 不用改
     bufLen = len(buf)
     # Write Header
     try:
@@ -136,6 +182,8 @@ def writePacket(connection, command, buf):
         return -1
     return bufLen
 
+
+# ---------------------------------------------------------
 # ---------------------------------------------------------
 # ---------------------------------------------------------
 def readPacket(connection):
@@ -168,10 +216,11 @@ def readPacket(connection):
 
     return cmd, packetLen, data  # 返回的命令，数据长度，数据
 
+
 # ---------------------------------------------------------
 # ---------------------------------------------------------
-# structstr 需要学习如何写
-def readPacket1(connection, structStr, errorMsg):  
+# ---------------------------------------------------------
+def readPacket1(connection, structStr, errorMsg):  # structstr 需要学习如何写
     cmd, packetLen, data = readPacket(connection)
     # print('readPacket1',cmd,packetLen,data)
     if cmd is None or packetLen is None or data is None:
@@ -185,10 +234,11 @@ def readPacket1(connection, structStr, errorMsg):
         print(errorMsg)
         return None
 
+
 # ---------------------------------------------------------
 # ---------------------------------------------------------
-# 多进程执行
-def mp_worker(connection, client_address, workerId):
+# ---------------------------------------------------------
+def mp_worker(connection, client_address, workerId):  # 多进程执行
     print("Worker Started", workerId)
     """
     with open('./ML_Models/standardscaler20190728.bin','rb') as f:           #打开scaler的参数, 归一化参数
@@ -212,13 +262,14 @@ def mp_worker(connection, client_address, workerId):
         # connection标识符，arrlen：特征个数
         # ------------------------------------------------------------------------------
         # ------------------------------------------------------------------------------
+        # ------------------------------------------------------------------------------
         arr_nt = readPacket1(
             connection, "%sd" % arrLen, "Unsupported Data, expect nt Array"
         )
         if arr_nt is None:
             break
-        arr_nt_hr = (np.array(arr_nt) - nml_factor_hr[0,1]) / nml_factor_hr[0,2]
-        arr_nt_hd = (np.array(arr_nt) - nml_factor_hd[0,1]) / nml_factor_hd[0,2]
+        arr_nt_hr = (np.array(arr_nt) - nml_factor_hr[0,0]) / nml_factor_hr[1,0]
+        arr_nt_hd = (np.array(arr_nt) - nml_factor_hd[0,0]) / nml_factor_hd[1,0]
         # print("arr_nt")
         # ------------------------------------------------------------------------------
         arr_Es = readPacket1(
@@ -226,8 +277,8 @@ def mp_worker(connection, client_address, workerId):
         )
         if arr_Es is None:
             break
-        arr_Es_hr = (np.array(arr_Es) - nml_factor_hr[1,1]) / nml_factor_hr[1,2]
-        arr_Es_hd = (np.array(arr_Es) - nml_factor_hd[1,1]) / nml_factor_hd[1,2]
+        arr_Es_hr = (np.array(arr_Es) - nml_factor_hr[0,1]) / nml_factor_hr[1,1]
+        arr_Es_hd = (np.array(arr_Es) - nml_factor_hd[0,1]) / nml_factor_hd[1,1]
         # print("arr_Es")
         # ------------------------------------------------------------------------------
         arr_Es_dx = readPacket1(
@@ -235,8 +286,8 @@ def mp_worker(connection, client_address, workerId):
         )
         if arr_Es_dx is None:
             break
-        arr_Es_dx_hr = (np.array(arr_Es_dx) - nml_factor_hr[2,1]) / nml_factor_hr[2,2]
-        arr_Es_dx_hd = (np.array(arr_Es_dx) - nml_factor_hd[2,1]) / nml_factor_hd[2,2]
+        arr_Es_dx_hr = (np.array(arr_Es_dx) - nml_factor_hr[0,2]) / nml_factor_hr[1,2]
+        arr_Es_dx_hd = (np.array(arr_Es_dx) - nml_factor_hd[0,2]) / nml_factor_hd[1,2]
         # print("arr_Es_dx")
         # ------------------------------------------------------------------------------
         arr_Es_dy = readPacket1(
@@ -244,8 +295,8 @@ def mp_worker(connection, client_address, workerId):
         )
         if arr_Es_dy is None:
             break
-        arr_Es_dy_hr = (np.array(arr_Es_dy) - nml_factor_hr[3,1]) / nml_factor_hr[3,2]
-        arr_Es_dy_hd = (np.array(arr_Es_dy) - nml_factor_hd[3,1]) / nml_factor_hd[3,2]
+        arr_Es_dy_hr = (np.array(arr_Es_dy) - nml_factor_hr[0,3]) / nml_factor_hr[1,3]
+        arr_Es_dy_hd = (np.array(arr_Es_dy) - nml_factor_hd[0,3]) / nml_factor_hd[1,3]
         # print("arr_Es_dy")
         # ------------------------------------------------------------------------------
         arr_P_dx = readPacket1(
@@ -253,8 +304,8 @@ def mp_worker(connection, client_address, workerId):
         )
         if arr_P_dx is None:
             break
-        arr_P_dx_hr = (np.array(arr_P_dx) - nml_factor_hr[4,1]) / nml_factor_hr[4,2]
-        arr_P_dx_hd = (np.array(arr_P_dx) - nml_factor_hd[4,1]) / nml_factor_hd[4,2]
+        arr_P_dx_hr = (np.array(arr_P_dx) - nml_factor_hr[0,4]) / nml_factor_hr[1,4]
+        arr_P_dx_hd = (np.array(arr_P_dx) - nml_factor_hd[0,4]) / nml_factor_hd[1,4]
         # print("arr_P_dx")
         # ------------------------------------------------------------------------------
         arr_P_dy = readPacket1(
@@ -262,8 +313,8 @@ def mp_worker(connection, client_address, workerId):
         )
         if arr_P_dy is None:
             break
-        arr_P_dy_hr = (np.array(arr_P_dy) - nml_factor_hr[5,1]) / nml_factor_hr[5,2]
-        arr_P_dy_hd = (np.array(arr_P_dy) - nml_factor_hd[5,1]) / nml_factor_hd[5,2]
+        arr_P_dy_hr = (np.array(arr_P_dy) - nml_factor_hr[0,5]) / nml_factor_hr[1,5]
+        arr_P_dy_hd = (np.array(arr_P_dy) - nml_factor_hd[0,5]) / nml_factor_hd[1,5]
         # print("arr_P_dy")
         # ------------------------------------------------------------------------------
         arr_Uslip = readPacket1(
@@ -271,8 +322,8 @@ def mp_worker(connection, client_address, workerId):
         )
         if arr_Uslip is None:
             break
-        arr_Uslip_hr = (np.array(arr_Uslip) - nml_factor_hr[6,1]) / nml_factor_hr[6,2]
-        arr_Uslip_hd = (np.array(arr_Uslip) - nml_factor_hd[6,1]) / nml_factor_hd[6,2]
+        arr_Uslip_hr = (np.array(arr_Uslip) - nml_factor_hr[0,6]) / nml_factor_hr[1,6]
+        arr_Uslip_hd = (np.array(arr_Uslip) - nml_factor_hd[0,6]) / nml_factor_hd[1,6]
         # print("arr_Uslip")
         # ------------------------------------------------------------------------------
         arr_Uslip_dx = readPacket1(
@@ -280,8 +331,8 @@ def mp_worker(connection, client_address, workerId):
         )
         if arr_Uslip_dx is None:
             break
-        arr_Uslip_dx_hr = (np.array(arr_Uslip_dx) - nml_factor_hr[7,1]) / nml_factor_hr[7,2]
-        arr_Uslip_dx_hd = (np.array(arr_Uslip_dx) - nml_factor_hd[7,1]) / nml_factor_hd[7,2]
+        arr_Uslip_dx_hr = (np.array(arr_Uslip_dx) - nml_factor_hr[0,7]) / nml_factor_hr[1,7]
+        arr_Uslip_dx_hd = (np.array(arr_Uslip_dx) - nml_factor_hd[0,7]) / nml_factor_hd[1,7]
         # print("arr_Uslip_dx")
         # ------------------------------------------------------------------------------
         arr_Uslip_dy = readPacket1(
@@ -289,8 +340,8 @@ def mp_worker(connection, client_address, workerId):
         )
         if arr_Uslip_dy is None:
             break
-        arr_Uslip_dy_hr = (np.array(arr_Uslip_dy) - nml_factor_hr[8,1]) / nml_factor_hr[8,2]
-        arr_Uslip_dy_hd = (np.array(arr_Uslip_dy) - nml_factor_hd[8,1]) / nml_factor_hd[8,2]
+        arr_Uslip_dy_hr = (np.array(arr_Uslip_dy) - nml_factor_hr[0,8]) / nml_factor_hr[1,8]
+        arr_Uslip_dy_hd = (np.array(arr_Uslip_dy) - nml_factor_hd[0,8]) / nml_factor_hd[1,8]
         # print("arr_Uslip_dy")
         # ------------------------------------------------------------------------------
         arr_Oz = readPacket1(
@@ -298,7 +349,7 @@ def mp_worker(connection, client_address, workerId):
         )
         if arr_Oz is None:
             break
-        arr_Oz = (np.array(arr_Oz) - nml_factor_hr[9,1]) / nml_factor_hr[9,2]
+        arr_Oz = (np.array(arr_Oz) - nml_factor_hr[0,9]) / nml_factor_hr[1,9]
         # print("arr_Oz")
         # ------------------------------------------------------------------------------
         arr_Oz_dx = readPacket1(
@@ -306,7 +357,7 @@ def mp_worker(connection, client_address, workerId):
         )
         if arr_Oz_dx is None:
             break
-        arr_Oz_dx = (np.array(arr_Oz_dx) - nml_factor_hr[10,1]) / nml_factor_hr[10,2]
+        arr_Oz_dx = (np.array(arr_Oz_dx) - nml_factor_hr[0,10]) / nml_factor_hr[1,10]
         # print("arr_Oz_dx")
         # ------------------------------------------------------------------------------
         arr_Oz_dy = readPacket1(
@@ -314,7 +365,7 @@ def mp_worker(connection, client_address, workerId):
         )
         if arr_Oz_dy is None:
             break
-        arr_Oz_dy = (np.array(arr_Oz_dy) - nml_factor_hr[11,1]) / nml_factor_hr[11,2]
+        arr_Oz_dy = (np.array(arr_Oz_dy) - nml_factor_hr[0,11]) / nml_factor_hr[1,11]
         # print("arr_Oz_dy")
         # ------------------------------------------------------------------------------
         arr_beta = readPacket1(
@@ -322,9 +373,10 @@ def mp_worker(connection, client_address, workerId):
         )
         if arr_beta is None:
             break
-        arr_beta = (np.array(arr_beta) - nml_factor_hd[9,1]) / nml_factor_hd[9,2]
+        arr_beta = (np.array(arr_beta) - nml_factor_hd[0,9]) / nml_factor_hd[1,9]
         # print("arr_beta")
         print("Get all variables.")
+        # ------------------------------------------------------------------------------
         # ------------------------------------------------------------------------------
         # ------------------------------------------------------------------------------
         # Make prediction
@@ -367,6 +419,7 @@ def mp_worker(connection, client_address, workerId):
 
         # ------------------------------------------------------------------------------
         # ------------------------------------------------------------------------------
+        # ------------------------------------------------------------------------------
         hdBytes = struct.pack(str(arrLen) + "d", *hd)  # 转化为c的数据类型
         wrlt = writePacket(connection, 8, hdBytes)  # 写作packet
 
@@ -379,11 +432,7 @@ def mp_worker(connection, client_address, workerId):
             print("Worker Closed", workerId)
     connection.close()
 
-# ---------------------------------------------------------
-#                  End of Define Functions
-# ---------------------------------------------------------
-#                       Main Program
-# ---------------------------------------------------------
+
 workerId = 0
 while True:
     # Wait for a connection
@@ -393,6 +442,3 @@ while True:
     p = Process(target=mp_worker, args=(connection, client_address, workerId))
     p.start()
     workerId += 1
-# ---------------------------------------------------------
-#                   End of Main Program
-# ---------------------------------------------------------

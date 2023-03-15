@@ -25,13 +25,13 @@
 -------------------------------------------------------
 */
 
-#define diam_p 70.e-6      /* particle diameter [m] */
-#define oz_conc 1.6653e-4  /* initial ozone concentration, 100 ppm -> %mass */
-#define k_v 49.2 /* reaction constant based on catalysts volume, [/s] */
-#define D_ozone 1.48535e-5 /* mass diffusivity of ozone in air [m^2/s] */
-#define density_gas 1.225        /* density of air, [kg/m^3] */
-#define density_solids 1780.     /* density of solids, [kg/m^3] */
-#define adjust_ID 491
+#define diam_p 70.e-6      // particle diameter [m] 
+#define oz_conc 1.6653e-4  // initial ozone concentration, 100 ppm -> %mass 
+#define k_v 49.2 // reaction constant based on catalysts volume, [/s] 
+#define D_ozone 1.48535e-5 // mass diffusivity of ozone in air [m^2/s] 
+#define density_gas 1.225        // density of air, [kg/m^3] 
+#define density_solids 1780.     // density of solids, [kg/m^3] 
+#define adjust_ID 551          // ID of the whole domain, change it for different cases
 
 // --------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------
@@ -328,33 +328,33 @@ DEFINE_EXECUTE_AT_END(feature_loop)
     Uslip = C_UDMI(cell, thread, 0);
     vector_push_back(&vec_Uslip, &Uslip);
     // gradient
-    Uslip_dx = C_UDSI_G(cell, thread, 2)[0] * C_UDSI_G(cell, thread, 2)[2];
+    Uslip_dx = abs(C_UDSI_G(cell, thread, 2)[0] * C_UDSI_G(cell, thread, 2)[2]);
     vector_push_back(&vec_Uslip_dx, &Uslip_dx);
-    Uslip_dy = C_UDSI_G(cell, thread, 2)[1];
+    Uslip_dy = (C_UDSI_G(cell, thread, 2)[1]);
     vector_push_back(&vec_Uslip_dy, &Uslip_dy);
 
     // pressure gradient (p_dx, p_dy)
-    p_dx = C_P_G(cell, thread)[0] * C_P_G(cell, thread)[2];
+    p_dx = abs(C_P_G(cell, thread)[0] * C_P_G(cell, thread)[2]);
     vector_push_back(&vec_P_dx, &p_dx);
-    p_dy = C_P_G(cell, thread)[1];
+    p_dy = (C_P_G(cell, thread)[1]);
     vector_push_back(&vec_P_dy, &p_dy);
 
     // ozone concentration (oz)
     oz = C_UDSI(cell, thread_gas, 0) / oz_conc;
     vector_push_back(&vec_Oz, &oz);
     // ozone concentration gradient (Oz_dx, Oz_dy)
-    oz_dx = (C_UDSI_G(cell, thread_gas, 0)[0]*C_UDSI_G(cell, thread_gas, 0)[2]) / oz_conc;
+    oz_dx = abs((C_UDSI_G(cell, thread_gas, 0)[0]*C_UDSI_G(cell, thread_gas, 0)[2]) / oz_conc);
     vector_push_back(&vec_Oz_dx, &oz_dx);
-    oz_dy = C_UDSI_G(cell, thread_gas, 0)[1] / oz_conc;
+    oz_dy = (C_UDSI_G(cell, thread_gas, 0)[1] / oz_conc);
     vector_push_back(&vec_Oz_dy, &oz_dy);
 
     // solids holdup (Es)
     es = 1.- C_VOF(cell, thread_gas);
     vector_push_back(&vec_Es, &es);
     // solids holdup gradient (Es_dx, Es_dy)
-    es_dx = C_UDSI_G(cell, thread, 1)[0] * C_UDSI_G(cell, thread, 1)[2];
+    es_dx = abs(C_UDSI_G(cell, thread, 1)[0] * C_UDSI_G(cell, thread, 1)[2]);
     vector_push_back(&vec_Es_dx, &es_dx);
-    es_dy = C_UDSI_G(cell, thread, 1)[1];
+    es_dy = (C_UDSI_G(cell, thread, 1)[1]);
     vector_push_back(&vec_Es_dy, &es_dy);
 
     // drag coefficient 
@@ -511,8 +511,9 @@ DEFINE_SOURCE(rxn_ozone, cell, thread, dS, eqn)
     if (hrData)
     {
       coef_Hr = hrData[cell];
-      if (coef_Hr < 0.03)
-        coef_Hr = 0.03;
+      coef_Hr = 1.5 * coef_Hr;
+      if (coef_Hr < 0.1)
+        coef_Hr = 0.1;
 
       if (coef_Hr > 1.)
         coef_Hr = 1.;
@@ -522,7 +523,7 @@ DEFINE_SOURCE(rxn_ozone, cell, thread, dS, eqn)
       coef_Hr = 1.;
     }
     /*---- calculate the reaction rate ----*/
-    k = coef_Hr * k_v;
+    k = coef_Hr*k_v;
     rxn_rate = -k * rho_g * epsilon_s * Y_ozone;
     dS[eqn] = -k * rho_g * epsilon_s;
     C_UDMI(cell, thread, 1) = rxn_rate;

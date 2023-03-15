@@ -17,10 +17,10 @@ av = 6. / dp;
 Dozone = 1.48535*^-5;
 (* initial ozone mass fraction in Cheng-xiu's experiments, 100ppmv *)
 Y0Wang = 1.6653*^-4;
-(* initial ozone mass fraction in Cheng-xiu's experiments, 100ppmv *)
+(* initial ozone mass fraction in Dong-bin's experiments, 13ppmv *)
 Y0Li = 2.1649*^-5;
 (* reaction constant in Cheng-xiu's experiments *)
-krWang = 49.21 / av;
+krWang = 49.2 / av;
 krLi = 4. / av;
 
 (* 
@@ -31,52 +31,51 @@ krLi = 4. / av;
 
 (* Drag Model *)
 
-calKGdsp =
-    Compile[
-        {{epss, _Real}, {Uslip, _Real}}
-        ,
-        Module[{Cd, epsg, numRes, ksg, UslipC},
-            If[epss == 0. || Uslip == 0.,
-                Return[0.]
-            ];
-            UslipC = Abs @ Uslip;
-            epsg = 1. - epss;
-            numRes = epsg * rhog * UslipC * dp / mug;
-            Cd = 24. / numRes (1. + .15 numRes^0.687);
-            epsg = 1. - epss;
-            If[epsg > 0.8,
-                (* Wen-Yu *)
-                ksg = .75 * Cd * (epss * epsg * rhog * UslipC) / dp * epsg ^ -2.65
-                ,
-                (* Ergun *)
-                ksg = 150. * (mug * epss^2.) / (epsg * dp^2.) + 1.75 * (rhog * epss * UslipC) / dp
-            ];
-            If[Uslip > 0.,
-                ksg
-                ,
-                -ksg
-            ]
-        ]
-    ];
+calKGdsp = Compile[
+    {{epss, _Real}, {Uslip, _Real}}
+    ,
+    Module[{Cd, epsg, numRes, ksg, UslipC},
+        If[epss == 0. || Uslip == 0.,
+            Return[0.]
+        ];
+        UslipC = Abs @ Uslip;
+        epsg = 1. - epss;
+        numRes = epsg * rhog * UslipC * dp / mug;
+        Cd = 24. / numRes (1. + .15*numRes^0.687);
+        epsg = 1. - epss;
+        If[epsg > 0.8,
+            (* Wen-Yu *)
+            ksg = .75 * Cd * (epss * epsg * rhog * UslipC) / dp * epsg^-2.65
+            ,
+            (* Ergun *)
+            ksg = 150. * (mug * epss^2.) / (epsg * dp^2.) + 1.75 * (rhog * epss * UslipC) / dp
+        ];
+        If[Uslip > 0., ksg , -ksg]
+    ]
+];
 
 (* Loaction and filter box function *)
 
 (* find point's positions inside one frame *)
-posInFrame[dataCal_, {{yLow_, yUp_}, {xLow_, xUp_}, {zLow_, zUp_}}] :=
-   Boole[yLow <= #3 <= yUp && xLow <= #2 <= xUp && zLow <= #4 <= zUp] & @@@ dataCal;
-
+posInFrame[dataCoord_, {{yLow_, yUp_}, {xLow_, xUp_}, {zLow_, zUp_}}] :=
+    Block[{x, y, z},
+        x = dataCoord[[All, 1]];
+        y = dataCoord[[All, 2]];
+        z = dataCoord[[All, 3]];
+        Boole[yLow < y[[#]] < yUp && xLow < x[[#]] < xUp && zLow < z[[#]] < zUp] & /@ Range[Length@x]
+    ];
 (* find all filter box ranges, n is n times of dp *)
 
 (* the output is {{yLow_,yUp_},{xLow_,xUp_},{zLow_,zUp_}} *)
 funcBox[n_, dataCal_] := 
     Module[{ylb, yub, xlb, xub, zlb, zub, binWidth, binError, ii, jj, output},
         binWidth = n*dp;
-        binError = 0.0003;
-        ylb = Range[0, Max[#3 & @@@ dataCal] - binWidth, 0.5*binWidth]-binError;
+        binError = 3.3 dp/3;
+        ylb = Range[0, Max[#2 & @@@ dataCal] - binWidth, 0.5*binWidth]-binError;
         yub = ylb + binWidth+binError;
-        xlb = Range[0, Max[#2 & @@@ dataCal] - binWidth, 0.5*binWidth]-binError;
+        xlb = Range[0, Max[#1 & @@@ dataCal] - binWidth, 0.5*binWidth]-binError;
         xub = xlb + binWidth+binError;
-        zlb = Range[0, Max[#4 & @@@ dataCal] - binWidth, 0.5*binWidth]-binError;
+        zlb = Range[0, Max[#3 & @@@ dataCal] - binWidth, 0.5*binWidth]-binError;
         zub = zlb + binWidth+binError;
 
         output = {};
@@ -101,7 +100,7 @@ funcBox[n_, dataCal_] :=
 
 (* Calculatee Parameters in One Box *)
 
-cal1FilterBox[dataCal_, bin_, nt_,
+cal1FilterBox[dataCoord_, bin_, nt_,
                 daX_, daY_, daZ_,
                 daEs_, daP_,
                 daUgxEg_, daUsxEs_, 
@@ -121,7 +120,7 @@ cal1FilterBox[dataCal_, bin_, nt_,
             cOz, avOz, cOzEs,
             cBetafy, avBetafy, avBetay,
             coefHdy, coefHr},
-        filterBoxPos = posInFrame[dataCal, bin];
+        filterBoxPos = posInFrame[dataCoord, bin];
         (************************************)
         avX = Mean[Pick[daX, filterBoxPos, 1]];
         avY = Mean[Pick[daY, filterBoxPos, 1]];
@@ -174,16 +173,17 @@ cal1FilterBox[dataCal_, bin_, nt_,
 
 (* Calculate Results in One Filter Box Size & Export Table *)
 
-cal1BoxSize[numData_, dataCal_, nt_, 
+cal1BoxSize[numData_, dataCoord_, nt_, 
             daX_, daY_, daZ_, daEs_, daP_, 
             daUgxEg_, daUsxEs_, 
             daUgyEg_, daUsyEs_, 
             daUgzEg_, daUszEs_, 
             daOzEg_, daUslipDrag_, daOzEs_] :=
     Block[{boxBin, res},
-        boxBin = funcBox[nt, dataCal];
+        boxBin = funcBox[nt, dataCoord];
+        Print["The number of cell in one box is ", Total[posInFrame[dataCoord, boxBin[[1]]]]];
         Print["Filter box bin calculation complete."];
-        res = ParallelMap[cal1FilterBox[dataCal, #, nt, 
+        res = ParallelMap[cal1FilterBox[dataCoord, #, nt, 
                                         daX, daY, daZ, 
                                         daEs, daP, 
                                         daUgxEg, daUsxEs, 
@@ -192,7 +192,7 @@ cal1BoxSize[numData_, dataCal_, nt_,
                                         daOzEg, daUslipDrag, daOzEs]&, boxBin];
         Print["Results calculation complete."];
         (* Export Results *)
-        Export["table\\coef-" ~ StringJoin ~ ToString[nt] ~ StringJoin ~ "dp-" ~ StringJoin ~ ToString[dir[[numData]]], res];
+        Export["table\\coef-" ~StringJoin~ ToString[nt] ~StringJoin~ "dp-" ~StringJoin~ ToString[dir[[numData]]], res];
         Print["---------- Results Export Complete ----------"];
     ];
 
@@ -200,7 +200,7 @@ cal1BoxSize[numData_, dataCal_, nt_,
 
 cal1DataSet[numData_] :=
     Block[{dataCal,
-            daX, daY, daZ,
+            daX, daY, daZ, dataCoord,
             daP, daOz,
             daUgx, daUgy, daUgz,
             daUsx, daUsy, daUsz,
@@ -215,22 +215,23 @@ cal1DataSet[numData_] :=
         Print["---------------- NEW DATA SET ---------------"];
         Print["-------------------- ", numData, "/", Length @ dir, " --------------------"];
         Print["---------------------------------------------"];
-        Print["The data set is " ~ StringJoin ~ ToString[dir[[numData]]]];
-        dataCal = Import["data\\" ~ StringJoin ~ ToString[dir[[numData]]]][[2 ;; -1]];
+        Print["The data set is " ~StringJoin~ ToString[dir[[numData]]]];
+        dataCal = Import["data\\" ~StringJoin~ ToString[dir[[numData]]]][[2 ;; -1]];
         Print["Data reading complete."];
         (* Calculate parameter set 1 *)
-        daX = #2 & @@@ dataCal;
-        daY = #3 & @@@ dataCal;
-        daZ = #4 & @@@ dataCal;
-        daOz = #5 & @@@ dataCal;
-        daP = #6 & @@@ dataCal;
-        daUgx = #7 & @@@ dataCal;
-        daUgy = #8 & @@@ dataCal;
-        daUgz = #9 & @@@ dataCal;
-        daUsx = #10 & @@@ dataCal;
-        daUsy = #11 & @@@ dataCal;
-        daUsz = #12 & @@@ dataCal;
-        daEs = #13 & @@@ dataCal;
+        daX = dataCal[[All, 2]];
+        daY = dataCal[[All, 3]];
+        daZ = dataCal[[All, 4]];
+        dataCoord = Transpose@{daX, daY, daZ};
+        daOz = dataCal[[All, 5]];
+        daP = dataCal[[All, 6]];
+        daUgx = dataCal[[All, 7]];
+        daUgy = dataCal[[All, 8]];
+        daUgz = dataCal[[All, 9]];
+        daUsx = dataCal[[All, 10]];
+        daUsy = dataCal[[All, 11]];
+        daUsz = dataCal[[All, 12]];
+        daEs = dataCal[[All, 13]];
         Print["Parameter set 1 calculation complete."];
         (* Calculate parameter set 2 *)
         daUslip = Sqrt[(daUgx - daUsx)^2 + (daUgy - daUsy)^2 + (daUgz - daUsz)^2];
@@ -246,7 +247,7 @@ cal1DataSet[numData_] :=
         daUslipDrag = (daUgy - daUsy)*daDrag;
         Print["Parameter set 2 calculation complete."];
         (* Calculate Coefficients *)
-        cal1BoxSize[numData, dataCal, #, 
+        cal1BoxSize[numData, dataCoord, #, 
                     daX, daY, daZ, 
                     daEs, daP, 
                     daUgxEg, daUsxEs, 
@@ -262,9 +263,9 @@ cal1DataSet[numData_] :=
 ------------------------------------------------------------------ 
 *)
 
-range = {50, 70, 90, 110};
+range = {30, 40, 50, 80, 100};
 
-Map[cal1DataSet, Range[Length @ dir]];
+Map[cal1DataSet, Range[Length @ dir]]//AbsoluteTiming
 
 CloseKernels[];
 

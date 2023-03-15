@@ -29,60 +29,17 @@
 // #pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
 // #pragma GCC diagnostic ignored "-Wunused-variable"
 
-#define ID_outlet 24             /* zone ID of riser's outlet */
-#define e_s_0 0.5                /* solids holdup at inlet */
-#define A_riser 0.004545       /* cross-sectional area of riser, [m^2] */
-#define A_inlet_solids 0.00201655 /* area of solids inlet, [m^2] */
-
 #define diam_p 70.e-6      /* particle diameter [m] */
 #define oz_conc 1.6653e-4  /* initial ozone concentration, 100 ppm -> %mass */
 #define k_v 49.2 /* reaction constant based on catalysts volume, [/s] */
 #define D_ozone 1.48535e-5 /* mass diffusivity of ozone in air [m^2/s] */
 #define density_gas 1.225        /* density of air, [kg/m^3] */
 #define density_solids 1780.     /* density of solids, [kg/m^3] */
-#define diam_riser 0.0762 // diameter of riser, [m]
+#define adjust_ID 8
 
 #include "udf.h"
 #include "stdio.h"
 #include "math.h"
-
-/*---------------------------------------------------------------------------*/
-/*-------------- set velocity inlet of solids at solids inlet ---------------*/
-/*---------------------------------------------------------------------------*/
-DEFINE_PROFILE(Us_at_solids_inlet, thread, i)
-{
-#if !RP_HOST
-    Domain *domain;
-    face_t face;
-    cell_t cell;
-    Thread *thread_mix, *thread_gas, *thread_solids;
-
-    real flux = 0.0;
-    real vfr_s_outlet = 0.0;
-
-    domain = Get_Domain(1);
-    thread_mix = Lookup_Thread(domain, ID_outlet);
-    thread_gas = THREAD_SUB_THREAD(thread_mix, 0);
-    thread_solids = THREAD_SUB_THREAD(thread_mix, 1);
-#endif
-
-#if !RP_HOST
-    begin_f_loop(face, thread_solids)
-    {
-        flux += F_FLUX(face, thread_solids);
-    }
-    end_f_loop(face, thread_solids)
-
-        flux = PRF_GRSUM1(flux);
-    vfr_s_outlet = flux / density_solids;
-
-    begin_f_loop(face, thread)
-    {
-        F_PROFILE(face, thread, i) = vfr_s_outlet / (A_inlet_solids * e_s_0);
-    }
-    end_f_loop(face, thread)
-#endif
-}
 
 /* ------------------------------------------------------------- */
 /*                      Gidaspow drag + Hd                       */
@@ -171,6 +128,20 @@ DEFINE_SOURCE(rxn_ozone, cell, thread, dS, eqn)
     epsilon_s = 1. - epsilon_g;        /* volume fraction of solids */
     rho_g = C_R(cell, thread);         /* gas density */
     
+    /* --------------------------------- */
+    // if (hrData)
+    // {
+    //   coef_Hr = hrData[cell];
+    //   if (coef_Hr < 0.03)
+    //     coef_Hr = 0.03;
+
+    //   if (coef_Hr > 1.5)
+    //     coef_Hr = 1.5;
+    // }
+    // else
+    // {
+    //   coef_Hr = 1.;
+    // }
     /*---- calculate the reaction rate ----*/
     coef_Hr = 1.;
     k = coef_Hr * k_v;
@@ -194,9 +165,6 @@ DEFINE_DIFFUSIVITY(diff_ozone_laminar, cell, thread, i)
     real rho_g, u_slip;
     real epsilon_g, epsilon_s;
     real Y_oz_g;
-
-    // real coord_x[ND_ND];
-    // C_CENTROID(coord_x, cell, thread_mix);
 
     /*---------------------------------*/
     /*--------- slip velocity ---------*/
@@ -231,15 +199,6 @@ DEFINE_DIFFUSIVITY(diff_ozone_laminar, cell, thread, i)
     Y_oz_g = C_UDSI(cell, thread_gas, 0); /* %mass of ozone in the gas phase */
 
     /*---------------------------------*/
-    // if (sqrt((x[0])^2.+(x[2])^2.) > diam_riser/2)
-    // {
-    //     C_UDSI(cell, thread_mix, 1) = 0.5;
-    //     C_UDSI(cell, thread_mix, 2) = 0.5;
-    // }
-    // else{
-    //     C_UDSI(cell, thread_mix, 1) = epsilon_s;
-    //     C_UDSI(cell, thread_mix, 2) = u_slip;
-    // }
     C_UDSI(cell, thread_mix, 1) = epsilon_s;
     C_UDSI(cell, thread_mix, 2) = u_slip;
     /*---------------------------------*/
