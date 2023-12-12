@@ -1,5 +1,8 @@
 # Codes of my thesis
 
-This repository contains the source codes for the computations of the filter model utilized in my doctoral dissertation. The codes generate datasets from the raw data of high-resolution TFM simulations, which are then processed for regression in the neural network model. All data preparations are implemented with [Wolfram Engine 13](https://www.wolfram.com/engine), which is a free alternative to Wolfram Mathematica.
-
-Except for the codes, the repository supported an example with raw data (in data folder), filtered data (in table folder), and gradient data (in tableGrad folder).
+All the codes related to works in my thesis have been placed here.
+The code is primarily written in Wolfram Language (Mathematica), C Language, and Python.
+This code repository compresses three folders:
+- "`Reaction model & tracer process`" contains the codes for the homogeneous ozone decomposition reaction model and the tracer process.
+- "`Filtered model`" contains the codes for the filtration process.
+- "`Others`" contains the other codes that are related to the works in this thesis.
