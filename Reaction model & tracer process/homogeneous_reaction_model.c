@@ -1,14 +1,14 @@
 // -------------------------------------------------------
 //     UDS_0 -> %mass of ozone in gas phase
-//     UDS_1 -> solids holdup in mixture phase
-//     UDS_2 -> slip velocity in mixture phase
+//     X UDS_1 -> solids holdup in mixture phase
+//     X UDS_2 -> slip velocity in mixture phase
 // -------------------------------------------------------
 //     UDM_0 -> slip velocity, m/s
 //     UDM_1 -> reaction rate, kg/m^3/s
 //     UDM_2 -> ozone concentration, kg/m^3/s
 // --------------
-//     UDM_3 -> coefficient of Hr
-//     UDM_4 -> coefficient of Hd
+//     X UDM_3 -> coefficient of Hr
+//     X UDM_4 -> coefficient of Hd
 // -------------------------------------------------------
 
 #define diam_p 70.e-6        // particle diameter [m]
@@ -42,7 +42,7 @@ DEFINE_SOURCE(rxn_ozone, cell, thread, dS, eqn)
     dS[eqn] = -k * rho_g * epsilon_s;
     C_UDMI(cell, thread, 1) = rxn_rate;
     C_UDMI(cell, thread, 2) = Y_ozone / oz_conc;
-    C_UDMI(cell, thread, 3) = coef_Hr;
+    // C_UDMI(cell, thread, 3) = coef_Hr;
 
     return rxn_rate;
 }
@@ -92,8 +92,8 @@ DEFINE_DIFFUSIVITY(diff_ozone_laminar, cell, thread, i)
     Y_oz_g = C_UDSI(cell, thread_gas, 0); // %mass of ozone in the gas phase
 
     //---------------------------------
-    C_UDSI(cell, thread_mix, 1) = epsilon_s;
-    C_UDSI(cell, thread_mix, 2) = u_slip;
+    // C_UDSI(cell, thread_mix, 1) = epsilon_s;
+    // C_UDSI(cell, thread_mix, 2) = u_slip;
     //---------------------------------
 
     // define some parameters and properties
